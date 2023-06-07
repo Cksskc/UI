@@ -1,0 +1,40 @@
+#Import necessary libraries
+import ccxt # for interacting with the Binance API
+import pandas as pd # for data manipulation
+import talib # for technical analysis calculations
+import time # for controlling the timing of the script
+
+#Set up connection with Binance Api
+binance = ccxt.binance({
+    "apiKey" : "BINANCE_API_KEY", # your Binance API key
+    "secret" : "BINANCE_SECRET", # Binance API secret
+})
+
+#Define the parameters for the trading bot
+symbol = "BTC/USDT" # the cryptocurrency pair to trade
+timeframe = "1h" # the timeframe to use for fetching data
+limit = 4800 # the number of past data points to fetch (200 days *24 hours)
+
+#Define a function to fetch historical OHLCV data from Binance
+def fetch_data(symbol, timeframe, limit):
+    ohlcv = binance.fetch_ohlcv(symbol, timeframe, limit = limit) # Fetch OHLCV data from Binance
+    df = pd.DataFrame(ohlcv, columns = ["time", "open", "high", "low", "close", "volume"])# convert teh data to a pandas DataFrame
+    df["time"] = pd.to_datetime(df["time"], unit = "ms")# convert teh time data to datatime format to make it easier to understand
+    return df.set_index("time") # set the time column as the DataFrames index and return it
+    
+#Define a function to calculate MACD and 200-day MA
+def calculate_indicator(df):
+    #Calculate MACD and sighal line using TA-Lib
+    df["MACD"], df["signal"],_ = talib.MACD(df["close"].values, fastperiod = 12, slowperiod = 26, signalperiod = 9)
+    #Calculate 200-day MA
+    df["200MA"] = df["close"].rolling(window=200).mean() # selects close column from Dataframe, this represents the closing price, does it for 200 times and calculates the avarage by .mean
+
+
+#Define a funstion for the trading strategy
+def strategy(df):
+    df = calculate_indicators(df) # calcualte MACD and 200 MA
+    #Define the buy signal condition : MACD line is above signal line and price is above 200 MA
+    buy_signal = (df["MACD"]>df["signal"]) & (df["close"]>df["200MA"])
+    #Define the sell signal condition : MACD line is bellow signal line and price is below 200 MA
+    sell_signal = (df["MACD"]<df["signal"]) & (df["close"]<df["200MA"])
+    return buy_signal, sell_signal # return buy and sell signal
