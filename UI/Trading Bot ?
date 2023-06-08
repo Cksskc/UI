@@ -28,13 +28,17 @@ def calculate_indicator(df):
     df["MACD"], df["signal"],_ = talib.MACD(df["close"].values, fastperiod = 12, slowperiod = 26, signalperiod = 9)
     #Calculate 200-day MA
     df["200MA"] = df["close"].rolling(window=200).mean() # selects close column from Dataframe, this represents the closing price, does it for 200 times and calculates the avarage by .mean
+    #Calculate previous 200-day MA (n-1)
+    df["200MA_prev"] = df["200MA"].shift(1)
 
 
 #Define a funstion for the trading strategy
 def strategy(df):
     df = calculate_indicators(df) # calcualte MACD and 200 MA
-    #Define the buy signal condition : MACD line is above signal line and price is above 200 MA
-    buy_signal = (df["MACD"]>df["signal"]) & (df["close"]>df["200MA"])
-    #Define the sell signal condition : MACD line is bellow signal line and price is below 200 MA
-    sell_signal = (df["MACD"]<df["signal"]) & (df["close"]<df["200MA"])
+    #Define a new column for previous day`s 200MA
+    df["200MA_prev"] = df["200MA"].shift(1)
+    #Define the buy signal condition : MACD line is above signal line and 200 MA is increasing
+    buy_signal = (df["MACD"]>df["signal"]) & (df["200MA"]>df["200MA_prev"])
+    #Define the sell signal condition : MACD line is bellow signal line and 200 MA is decreasing
+    sell_signal = (df["MACD"]<df["signal"]) & (df["200MA"]<df["200MA_prev"])
     return buy_signal, sell_signal # return buy and sell signal
